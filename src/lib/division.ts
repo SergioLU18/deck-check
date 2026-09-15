@@ -20,9 +20,3 @@ export function divisionFor(dateOfBirth: string | undefined, season: number): Ag
   if (year >= season - 16) return 'senior';
   return 'masters';
 }
-
-export const DIVISION_LABELS: Record<AgeDivision, string> = {
-  junior: 'Junior',
-  senior: 'Senior',
-  masters: 'Masters',
-};

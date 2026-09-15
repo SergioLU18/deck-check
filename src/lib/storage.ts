@@ -7,6 +7,7 @@ import type { Deck, Player } from './types';
 const DECKS_KEY = 'deck-check:decks';
 const ACTIVE_DECK_KEY = 'deck-check:active-deck';
 const PLAYER_KEY = 'deck-check:player';
+const LANGUAGE_KEY = 'deck-check:language';
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -37,3 +38,7 @@ export const saveActiveDeckId = (id: string) => write(ACTIVE_DECK_KEY, id);
  */
 export const loadPlayer = () => read<Player>(PLAYER_KEY, { name: '', playerId: '' });
 export const savePlayer = (player: Player) => write(PLAYER_KEY, player);
+
+/** The language picked with the toggle; null until the player picks one. */
+export const loadLanguage = () => read<string | null>(LANGUAGE_KEY, null);
+export const saveLanguage = (language: string) => write(LANGUAGE_KEY, language);

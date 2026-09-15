@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { useT } from '../i18n';
 import { Icon } from './Icon';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function Modal({ title, onClose, children, footer }: Props) {
+  const t = useT();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -27,7 +29,7 @@ export function Modal({ title, onClose, children, footer }: Props) {
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <button className="icon-btn" onClick={onClose} aria-label={t.close}>
             <Icon name="close" />
           </button>
         </header>

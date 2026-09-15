@@ -2,20 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { DeckEditor } from './components/DeckEditor';
 import { DeckListExport } from './components/DeckListExport';
 import { Icon } from './components/Icon';
+import { useLanguage } from './i18n';
 import type { CardDatabase } from './lib/cardDb';
 import { loadCardDatabase } from './lib/data';
 import { countCards, newDeck } from './lib/deck';
+import { FORM_SEASON } from './lib/division';
 import { loadActiveDeckId, loadDecks, loadPlayer, saveActiveDeckId, saveDecks, savePlayer } from './lib/storage';
+import { LANGUAGES } from './lib/strings';
 import type { Deck, DeckCard, Player } from './lib/types';
 
 type View = 'build' | 'list';
 
 export function App() {
+  const { t, language, setLanguage } = useLanguage();
   const [db, setDb] = useState<CardDatabase>();
   const [dbError, setDbError] = useState<string>();
   const [decks, setDecks] = useState<Deck[]>(() => {
     const saved = loadDecks();
-    return saved.length ? saved : [newDeck()];
+    return saved.length ? saved : [newDeck(t.newDeckName)];
   });
   const [activeId, setActiveId] = useState(() => loadActiveDeckId() ?? '');
   const [player, setPlayer] = useState<Player>(loadPlayer);
@@ -39,17 +43,17 @@ export function App() {
     );
 
   const createDeck = () => {
-    const created = newDeck(`Deck ${decks.length + 1}`);
+    const created = newDeck(t.numberedDeck(decks.length + 1));
     setDecks((list) => [...list, created]);
     setActiveId(created.id);
     setView('build');
   };
 
   const deleteDeck = () => {
-    if (!window.confirm(`Delete “${deck.name.trim() || 'Untitled deck'}”? This can't be undone.`)) return;
+    if (!window.confirm(t.confirmDelete(deck.name.trim() || t.untitledDeck))) return;
     setDecks((list) => {
       const rest = list.filter((d) => d.id !== deck.id);
-      return rest.length ? rest : [newDeck()];
+      return rest.length ? rest : [newDeck(t.newDeckName)];
     });
     setActiveId('');
   };
@@ -63,42 +67,57 @@ export function App() {
             Deck Check
           </span>
           <div className="deck-switcher">
-            <select aria-label="Current deck" value={deck.id} onChange={(event) => setActiveId(event.target.value)}>
+            <select aria-label={t.currentDeck} value={deck.id} onChange={(event) => setActiveId(event.target.value)}>
               {decks.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name.trim() || 'Untitled deck'} · {countCards(d.cards)}
+                  {d.name.trim() || t.untitledDeck} · {countCards(d.cards)}
                 </option>
               ))}
             </select>
             <button className="btn" onClick={createDeck}>
-              <Icon name="plus" size={16} /> New
+              <Icon name="plus" size={16} /> {t.newDeckButton}
             </button>
-            <button className="icon-btn" onClick={deleteDeck} aria-label="Delete deck" title="Delete deck">
+            <button className="icon-btn" onClick={deleteDeck} aria-label={t.deleteDeck} title={t.deleteDeck}>
               <Icon name="trash" />
             </button>
           </div>
-          <nav className="tabs" aria-label="View">
+          <nav className="tabs" aria-label={t.view}>
             <button className="tab" aria-current={view === 'build' ? 'page' : undefined} onClick={() => setView('build')}>
-              Build
+              {t.build}
             </button>
             <button className="tab" aria-current={view === 'list' ? 'page' : undefined} onClick={() => setView('list')}>
-              Deck list PDF
+              {t.deckListPdf}
             </button>
           </nav>
+          <div className="segmented lang-toggle" role="radiogroup" aria-label={t.language}>
+            {LANGUAGES.map(({ code, label, name }) => (
+              <button
+                key={code}
+                role="radio"
+                lang={code}
+                title={name}
+                aria-label={name}
+                aria-checked={language === code}
+                onClick={() => setLanguage(code)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
       <main className="main">
         {dbError ? (
           <div className="panel center">
-            <p className="error">Couldn't load the card database: {dbError}</p>
+            <p className="error">{t.dbError(dbError)}</p>
             <button className="btn" onClick={loadDb}>
-              Try again
+              {t.tryAgain}
             </button>
           </div>
         ) : !db ? (
           <div className="panel center">
-            <p className="muted">Loading the card database…</p>
+            <p className="muted">{t.loadingDb}</p>
           </div>
         ) : view === 'build' ? (
           <DeckEditor key={deck.id} deck={deck} db={db} onChange={updateDeck} onExport={() => setView('list')} />
@@ -115,8 +134,8 @@ export function App() {
       </main>
 
       <footer className="footer muted small">
-        {db && `${db.cardCount.toLocaleString()} cards, data as of ${db.updatedAt}. `}
-        Exports onto the official 2026 season deck list. Decks and player details stay in this browser.
+        {db && t.footerData(db.cardCount, db.updatedAt)}
+        {t.footerNote(FORM_SEASON)}
       </footer>
     </div>
   );

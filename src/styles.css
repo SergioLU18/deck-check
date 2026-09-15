@@ -853,6 +853,16 @@ input[type='checkbox'] {
   box-shadow: var(--shadow);
 }
 
+.lang-toggle {
+  margin-bottom: 0;
+}
+
+.lang-toggle button {
+  flex: none;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
 .warnings {
   margin-bottom: 14px;
   padding: 10px 12px;

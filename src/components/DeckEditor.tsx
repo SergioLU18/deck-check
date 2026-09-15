@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useT } from '../i18n';
 import type { CardDatabase } from '../lib/cardDb';
 import { addPrint, changeQuantity, countCards, DECK_SIZE, groupCards, mergeCards, replacePrint } from '../lib/deck';
 import { exportPtcgl, type PtcglImportResult } from '../lib/ptcgl';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function DeckEditor({ deck, db, onChange, onExport }: Props) {
+  const t = useT();
   const [importing, setImporting] = useState(false);
   const [switching, setSwitching] = useState<number | null>(null);
   const [notice, setNotice] = useState<string>();
@@ -31,23 +33,15 @@ export function DeckEditor({ deck, db, onChange, onExport }: Props) {
   const handleImport = (result: PtcglImportResult, mode: 'replace' | 'add') => {
     setCards(mode === 'replace' ? result.cards : mergeCards(deck.cards, result.cards));
     setImporting(false);
-    const lines = result.resolved + result.unresolved;
-    const n = result.unresolved;
-    setNotice(
-      n
-        ? `Imported ${lines} lines. ${
-            n === 1 ? "One card couldn't be matched to a print, so it was" : `${n} cards couldn't be matched to a print, so they were`
-          } added by name — choose prints before exporting.`
-        : `Imported ${lines} lines.`,
-    );
+    setNotice(t.importNotice(result.resolved + result.unresolved, result.unresolved));
   };
 
   const copyList = async () => {
     try {
       await navigator.clipboard.writeText(exportPtcgl(deck.cards, db));
-      setNotice('Copied the list in Pokémon TCG Live format.');
+      setNotice(t.copied);
     } catch {
-      setNotice("Couldn't copy to the clipboard.");
+      setNotice(t.copyFailed);
     }
   };
 
@@ -55,39 +49,41 @@ export function DeckEditor({ deck, db, onChange, onExport }: Props) {
 
   return (
     <div className="build">
-      <section className="panel deck-panel" aria-label="Deck">
+      <section className="panel deck-panel" aria-label={t.deckName}>
         <div className="deck-fields">
           <label className="field">
-            <span>Deck name</span>
+            <span>{t.deckName}</span>
             <input value={deck.name} onChange={(event) => onChange({ name: event.target.value })} />
           </label>
           <label className="field">
-            <span>Format</span>
+            <span>{t.format}</span>
             <select value={deck.format} onChange={(event) => onChange({ format: event.target.value as Format })}>
               {FORMATS.map((format) => (
-                <option key={format}>{format}</option>
+                <option key={format} value={format}>
+                  {t.formats[format]}
+                </option>
               ))}
             </select>
           </label>
         </div>
 
         <div className="deck-toolbar">
-          <span className={`counter ${status}`} aria-label={`${total} of ${DECK_SIZE} cards`}>
+          <span className={`counter ${status}`} aria-label={t.cardsOfTotal(total, DECK_SIZE)}>
             {total} / {DECK_SIZE}
           </span>
           <span className="spacer" />
           <button className="btn" onClick={() => setImporting(true)}>
-            <Icon name="import" size={16} /> Import
+            <Icon name="import" size={16} /> {t.import}
           </button>
           <button className="btn" onClick={copyList} disabled={!deck.cards.length}>
-            <Icon name="copy" size={16} /> Copy list
+            <Icon name="copy" size={16} /> {t.copyList}
           </button>
           <button className="btn primary" onClick={onExport}>
-            <Icon name="download" size={16} /> Deck list PDF
+            <Icon name="download" size={16} /> {t.deckListPdf}
           </button>
         </div>
 
-        {status === 'over' && <p className="warn-text small">A deck has exactly {DECK_SIZE} cards — this one has {total - DECK_SIZE} too many.</p>}
+        {status === 'over' && <p className="warn-text small">{t.overBy(DECK_SIZE, total - DECK_SIZE)}</p>}
         {notice && (
           <p className="notice" role="status">
             {notice}
@@ -95,12 +91,12 @@ export function DeckEditor({ deck, db, onChange, onExport }: Props) {
         )}
 
         {deck.cards.length === 0 ? (
-          <p className="empty">No cards yet. Search for cards to add, or import a list from Pokémon TCG Live.</p>
+          <p className="empty">{t.emptyDeck}</p>
         ) : (
           groups.map(([group, cards]) => (
             <section key={group} className="group">
               <h3 className="group-head">
-                {group} <span className="muted">({countCards(cards)})</span>
+                {t.groups[group]} <span className="muted">({countCards(cards)})</span>
               </h3>
               <ul className="card-list">
                 {cards.map((card) => {
@@ -122,8 +118,8 @@ export function DeckEditor({ deck, db, onChange, onExport }: Props) {
         )}
       </section>
 
-      <aside className="panel search-panel" aria-label="Add cards">
-        <h2 className="panel-title">Add cards</h2>
+      <aside className="panel search-panel" aria-label={t.addCards}>
+        <h2 className="panel-title">{t.addCards}</h2>
         <CardSearch db={db} format={deck.format} onAdd={(print, quantity) => setCards(addPrint(deck.cards, print, quantity))} />
       </aside>
 
@@ -137,7 +133,7 @@ export function DeckEditor({ deck, db, onChange, onExport }: Props) {
       )}
 
       {switchingCard && (
-        <Modal title={`Change print — ${switchingCard.name}`} onClose={() => setSwitching(null)}>
+        <Modal title={t.changePrintTitle(switchingCard.name)} onClose={() => setSwitching(null)}>
           <CardSearch
             db={db}
             format={deck.format}
@@ -164,6 +160,7 @@ interface CardRowProps {
 }
 
 function CardRow({ card, db, illegalIn, onQuantity, onChangePrint }: CardRowProps) {
+  const t = useT();
   const print = card.cardId ? db.getById(card.cardId) : undefined;
   const ref = db.setRef(card.cardId);
   const meta = [ref ? `${ref.setCode} ${ref.number}` : print?.setName, print?.regulationMark].filter(Boolean).join(' · ');
@@ -171,27 +168,27 @@ function CardRow({ card, db, illegalIn, onQuantity, onChangePrint }: CardRowProp
 
   return (
     <li className="card-row">
-      <button className="thumb-btn" onClick={onChangePrint} title="Change print" aria-label={`Change print of ${card.name}`}>
+      <button className="thumb-btn" onClick={onChangePrint} title={t.changePrint} aria-label={t.changePrintOf(card.name)}>
         {/* The print's current art first, so cards saved before art was found pick it up. */}
         <CardImage src={print?.imageUrl || card.imageUrl} alt="" className="thumb" />
       </button>
       <div className="card-info">
         <span className="card-name">{card.name}</span>
         <span className="card-meta">
-          {card.cardId ? <span className="muted small">{meta}</span> : <span className="tag warn">No print chosen</span>}
-          {illegalIn && <span className="tag danger">Not {illegalIn}</span>}
+          {card.cardId ? <span className="muted small">{meta}</span> : <span className="tag warn">{t.noPrintChosen}</span>}
+          {illegalIn && <span className="tag danger">{t.notLegalIn(t.formats[illegalIn])}</span>}
         </span>
       </div>
       <div className="stepper">
         <button
           className="icon-btn"
           onClick={() => onQuantity(-1)}
-          aria-label={last ? `Remove ${card.name}` : `One fewer ${card.name}`}
+          aria-label={last ? t.remove(card.name) : t.oneFewerOf(card.name)}
         >
           <Icon name={last ? 'trash' : 'minus'} size={16} />
         </button>
         <output>{card.quantity}</output>
-        <button className="icon-btn" onClick={() => onQuantity(1)} aria-label={`One more ${card.name}`}>
+        <button className="icon-btn" onClick={() => onQuantity(1)} aria-label={t.oneMoreOf(card.name)}>
           <Icon name="plus" size={16} />
         </button>
       </div>

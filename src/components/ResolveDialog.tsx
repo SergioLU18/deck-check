@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../i18n';
 import type { CardDatabase } from '../lib/cardDb';
 import type { CardPrint, DeckCard, Format } from '../lib/types';
 import { CardImage } from './CardImage';
@@ -27,6 +28,7 @@ interface Pending {
  * handing over, and a card like Riolu has dozens.
  */
 export function ResolveDialog({ cards, db, format, onApply, onClose }: Props) {
+  const t = useT();
   const [pending, setPending] = useState<Pending[]>(() =>
     cards.flatMap((card, index) => {
       if (card.cardId) return [];
@@ -61,7 +63,7 @@ export function ResolveDialog({ cards, db, format, onApply, onClose }: Props) {
   if (changing !== null) {
     const entry = pending[changing];
     return (
-      <Modal title={`Choose a print — ${entry.card.name}`} onClose={() => setChanging(null)}>
+      <Modal title={t.choosePrintTitle(entry.card.name)} onClose={() => setChanging(null)}>
         <CardSearch
           db={db}
           format={format}
@@ -80,28 +82,25 @@ export function ResolveDialog({ cards, db, format, onApply, onClose }: Props) {
 
   return (
     <Modal
-      title="Choose prints"
+      title={t.choosePrints}
       onClose={onClose}
       footer={
         <>
           <span className="spacer" />
           <button className="btn" onClick={onClose}>
-            Cancel
+            {t.cancel}
           </button>
           <button className="btn primary" disabled={!ready} onClick={apply}>
-            Apply
+            {t.apply}
           </button>
         </>
       }
     >
       {pending.length === 0 ? (
-        <p className="empty">Every card in this deck already has a print.</p>
+        <p className="empty">{t.allHavePrints}</p>
       ) : (
         <>
-          <p className="muted">
-            These cards were added by name only, so the deck list can't fill in their set, collector number or
-            regulation mark. Suggested prints are the newest legal ones — check they match the cards you're playing.
-          </p>
+          <p className="muted">{t.resolveHelp}</p>
           <ul className="resolve-list">
             {pending.map((p, i) => {
               const ref = db.setRef(p.print?.id);
@@ -117,18 +116,18 @@ export function ResolveDialog({ cards, db, format, onApply, onClose }: Props) {
                         ? [p.print.setName, ref ? `${ref.setCode} ${ref.number}` : `#${p.print.number}`, p.print.regulationMark]
                             .filter(Boolean)
                             .join(' · ')
-                        : 'No card with this name in the database'}
+                        : t.notInDatabase}
                     </span>
                   </div>
                   <button className="btn small" onClick={() => setChanging(i)}>
-                    Change
+                    {t.change}
                   </button>
                   <input
                     type="checkbox"
                     checked={p.selected}
                     disabled={!p.print}
                     onChange={(event) => update(i, { selected: event.target.checked })}
-                    aria-label={`Apply print for ${p.card.name}`}
+                    aria-label={t.applyPrintFor(p.card.name)}
                   />
                 </li>
               );

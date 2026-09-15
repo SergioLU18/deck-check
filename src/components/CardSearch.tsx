@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '../i18n';
 import type { CardDatabase } from '../lib/cardDb';
 import type { CardPrint, Format } from '../lib/types';
 import { CardImage } from './CardImage';
@@ -20,6 +21,7 @@ interface Props {
 
 /** Search by name → pick a print → pick a quantity. */
 export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }: Props) {
+  const t = useT();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const results = useMemo(() => db.search(deferredQuery), [db, deferredQuery]);
@@ -57,7 +59,7 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
   const confirm = () => {
     if (!print) return;
     onAdd?.(print, quantity);
-    setNotice(`Added ${quantity}× ${print.name}`);
+    setNotice(t.added(quantity, print.name));
     setPrint(undefined);
     setName(undefined);
   };
@@ -67,7 +69,7 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
     return (
       <div className="search">
         <div className="step-head">
-          <button className="icon-btn" onClick={() => setPrint(undefined)} aria-label="Back to prints">
+          <button className="icon-btn" onClick={() => setPrint(undefined)} aria-label={t.backToPrints}>
             <Icon name="back" />
           </button>
           <h3>{print.name}</h3>
@@ -76,16 +78,16 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
           <CardImage src={print.imageUrl} alt={`${print.name}, ${print.setName}`} className="large" />
           <p className="print-detail-set">{print.setName}</p>
           <p className="muted">
-            {[ref ? `${ref.setCode} ${ref.number}` : `#${print.number}`, print.regulationMark && `Reg. ${print.regulationMark}`]
+            {[ref ? `${ref.setCode} ${ref.number}` : `#${print.number}`, print.regulationMark && t.regulation(print.regulationMark)]
               .filter(Boolean)
               .join(' · ')}
           </p>
-          <div className="qty-picker" role="group" aria-label="Quantity">
-            <button className="icon-btn" onClick={() => setQuantity((q) => q - 1)} disabled={quantity <= 1} aria-label="One fewer">
+          <div className="qty-picker" role="group" aria-label={t.quantity}>
+            <button className="icon-btn" onClick={() => setQuantity((q) => q - 1)} disabled={quantity <= 1} aria-label={t.oneFewer}>
               <Icon name="minus" />
             </button>
             <output aria-live="polite">{quantity}</output>
-            <button className="icon-btn" onClick={() => setQuantity((q) => q + 1)} aria-label="One more">
+            <button className="icon-btn" onClick={() => setQuantity((q) => q + 1)} aria-label={t.oneMore}>
               <Icon name="plus" />
             </button>
           </div>
@@ -97,7 +99,7 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
             ))}
           </div>
           <button className="btn primary block" onClick={confirm}>
-            Add to deck
+            {t.addToDeck}
           </button>
         </div>
       </div>
@@ -108,16 +110,14 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
     return (
       <div className="search">
         <div className="step-head">
-          <button className="icon-btn" onClick={backToSearch} aria-label="Back">
+          <button className="icon-btn" onClick={backToSearch} aria-label={t.back}>
             <Icon name="back" />
           </button>
           <h3>{name}</h3>
-          <span className="muted small">
-            {prints.length} {prints.length === 1 ? 'print' : 'prints'}
-          </span>
+          <span className="muted small">{t.printCount(prints.length)}</span>
         </div>
         {prints.length === 0 ? (
-          <p className="empty">No prints of this card in the database.</p>
+          <p className="empty">{t.noPrints}</p>
         ) : (
           <div className="print-grid">
             {prints.map((p) => {
@@ -130,7 +130,7 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
                   <span className="print-meta">
                     {[ref ? `${ref.setCode} ${ref.number}` : `#${p.number}`, p.regulationMark].filter(Boolean).join(' · ')}
                   </span>
-                  {illegal && <span className="tag warn">Not {format}</span>}
+                  {illegal && <span className="tag warn">{t.notLegalIn(t.formats[format])}</span>}
                 </button>
               );
             })}
@@ -148,8 +148,8 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
           ref={inputRef}
           type="search"
           value={query}
-          placeholder="Search cards by name"
-          aria-label="Search cards by name"
+          placeholder={t.searchPlaceholder}
+          aria-label={t.searchPlaceholder}
           onChange={(event) => {
             setQuery(event.target.value);
             setNotice(undefined);
@@ -165,9 +165,9 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
         </p>
       )}
       {!query.trim() ? (
-        <p className="empty">Type a card name — “Charizard ex”, “Iono”, “Basic Fire Energy”.</p>
+        <p className="empty">{t.searchHint}</p>
       ) : results.length === 0 ? (
-        <p className="empty">No cards found.</p>
+        <p className="empty">{t.noResults}</p>
       ) : (
         <ul className="result-list">
           {results.map((result) => (
@@ -175,7 +175,7 @@ export function CardSearch({ db, format, initialName, onAdd, onPick, onCancel }:
               <button className="result" onClick={() => setName(result.name)}>
                 <CardImage src={result.imageUrl} alt="" className="thumb" />
                 <span className="result-name">{result.name}</span>
-                <span className="muted small">{result.supertype}</span>
+                <span className="muted small">{t.supertypes[result.supertype ?? ''] ?? result.supertype}</span>
               </button>
             </li>
           ))}
