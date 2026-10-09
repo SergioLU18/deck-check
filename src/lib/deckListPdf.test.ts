@@ -138,6 +138,37 @@ describe('what goes in each column', () => {
     expect(code('mep-31')).toMatchObject({ setCode: 'MEP', number: '31', regulationMark: 'I' });
   });
 
+  it('merges prints of the same Trainer and Energy into one row', () => {
+    const sections = split([
+      card('Charmander', 2, 'Pokémon', 'sv3-26'),
+      card("Professor's Research (Professor Sada)", 2, 'Trainer', 'sv1-189'),
+      card('Charmander', 2, 'Pokémon', 'bw1-1'),
+      card('Basic Fire Energy', 5, 'Energy', 'sve-2'),
+      card("Professor's Research (Professor Turo)", 2, 'Trainer', 'sv1-190'),
+      card('Fire Energy', 3, 'Energy', 'swsh12pt5-153'),
+      card('Boss’s Orders', 1, 'Trainer'),
+      card("Boss's Orders (Ghetsis)", 1, 'Trainer', 'sv2-172'),
+    ]);
+    // Pokémon keep one row per print: the set columns tell them apart.
+    expect(sections.pokemon.map((e) => e.quantity)).toEqual([2, 2]);
+    expect(sections.trainer).toEqual([
+      { quantity: 4, name: "Professor's Research" },
+      { quantity: 2, name: "Boss's Orders" },
+    ]);
+    expect(sections.energy).toEqual([{ quantity: 8, name: 'Basic Fire Energy' }]);
+  });
+
+  it('leaves a Special Energy named like a Basic one alone', () => {
+    const sections = split([card('Darkness Energy', 1, 'Energy', 'dp2-119')]);
+    expect(sections.energy[0].name).toBe('Darkness Energy');
+  });
+
+  it('only asks for a regulation mark on prints that can have one', () => {
+    const sections = split([card('Caterpie', 1, 'Pokémon', 'sm1-1')]);
+    expect(sections.pokemon[0].regulationMark).toBeUndefined();
+    expect(sections.missingRegulationMark).toEqual([]);
+  });
+
   it("spells out symbols the font doesn't have", () => {
     const sections = split([card('Nidoran ♀', 1, 'Pokémon'), card('Victini ◇', 1, 'Pokémon')]);
     expect(sections.pokemon.map((e) => e.name)).toEqual(['Nidoran F', 'Victini Prism Star']);

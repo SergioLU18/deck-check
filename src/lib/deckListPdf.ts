@@ -1,6 +1,6 @@
 import fontkit from '@pdf-lib/fontkit';
 import { LineCapStyle, PDFDocument, rgb, type Color, type PDFFont, type PDFPage } from 'pdf-lib';
-import { setIdOf, type CardDatabase } from './cardDb';
+import { nameKey, plainApostrophes, setIdOf, type CardDatabase } from './cardDb';
 import { isPokemon } from './deck';
 import type { AgeDivision, DeckCard, Player } from './types';
 
@@ -78,6 +78,13 @@ const NAME_SUBSTITUTIONS: [string, string][] = [
  * oldest set on the sheet — released 2011/04/25.
  */
 const OLDEST_LISTED_SET_DATE = '2011/04/25';
+
+/**
+ * Regulation marks started with Sword & Shield; its Black Star Promos were the
+ * first set to carry them. A print from before then has none to write, so a
+ * blank REG column is correct for it, not something to warn about.
+ */
+const FIRST_REGULATION_MARK_DATE = '2019/11/15';
 
 /** What the form wants in SET for a card older than anything it lists. */
 const NOT_APPLICABLE = 'NA';
@@ -278,14 +285,34 @@ function allocate(pokemon: number, trainer: number, energy: number): DeckListLay
 // ── Content ─────────────────────────────────────────────────────────────────
 
 function printableName(name: string): string {
-  let out = name;
+  // The font has no curly apostrophe; PTCGL writes "Boss’s Orders" with one.
+  let out = plainApostrophes(name);
   for (const [from, to] of NAME_SUBSTITUTIONS) out = out.split(from).join(to);
+  // The card data tells some arts apart in the name — "Professor's Research
+  // (Professor Sada)", "Boss's Orders (Ghetsis)" — but the card is just named
+  // "Professor's Research", and that's what the list asks for.
+  out = out.replace(/\s*\([^)]*\)\s*$/, '');
   return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Basic Energy is "Fire Energy" in older sets and "Basic Fire Energy" from
+ * Scarlet & Violet on. Both are the same card, so they're written one way.
+ * Only cards known to be Basic are touched: "Darkness Energy" was also a
+ * Special Energy once.
+ */
+function energyName(name: string, subtypes: string[]): string {
+  if (!subtypes.some((s) => s.toLowerCase() === 'basic')) return name;
+  return `Basic ${name.replace(/^Basic\s+/i, '')}`;
 }
 
 /**
  * Splits a deck into the form's three tables, resolving the set code,
  * collector number and regulation mark each Pokémon row needs.
+ *
+ * Pokémon are listed per print — the SET and COLL. # columns tell two arts
+ * apart. Trainers and Energy have no such columns, so different prints of the
+ * same card share one row with their copies added up.
  */
 export function splitDeck(cards: DeckCard[], db: CardDatabase): DeckListSections {
   const sections: DeckListSections = {
@@ -295,6 +322,20 @@ export function splitDeck(cards: DeckCard[], db: CardDatabase): DeckListSections
     unclassified: [],
     missingSetInfo: [],
     missingRegulationMark: [],
+  };
+  const rowsByName = new Map<DeckListEntry[], Map<string, DeckListEntry>>();
+  const addByName = (table: DeckListEntry[], quantity: number, name: string) => {
+    let rows = rowsByName.get(table);
+    if (!rows) rowsByName.set(table, (rows = new Map()));
+    const key = nameKey(name);
+    const existing = rows.get(key);
+    if (existing) {
+      existing.quantity += quantity;
+      return;
+    }
+    const entry = { quantity, name };
+    rows.set(key, entry);
+    table.push(entry);
   };
 
   for (const card of cards) {
@@ -308,19 +349,28 @@ export function splitDeck(cards: DeckCard[], db: CardDatabase): DeckListSections
       const number = setCode && card.cardId ? db.collectorNumber(card.cardId) : undefined;
       const regulationMark = print?.regulationMark;
       if (!setCode) sections.missingSetInfo.push(card.name);
-      if (!regulationMark) sections.missingRegulationMark.push(card.name);
+      if (!regulationMark && mayHaveRegulationMark(card.cardId, db)) sections.missingRegulationMark.push(card.name);
       sections.pokemon.push({ quantity: card.quantity, name, setCode, number, regulationMark });
     } else if (supertype === 'energy') {
-      sections.energy.push({ quantity: card.quantity, name });
+      const subtypes = card.subtypes.length ? card.subtypes : (print?.subtypes ?? []);
+      addByName(sections.energy, card.quantity, energyName(name, subtypes));
     } else {
       // Anything left goes in the Trainer table: it's by far the largest, and
       // an unrecognised card is much more often a Trainer than not. The player
       // is told which rows were guessed so they can correct the sheet.
-      if (supertype !== 'trainer') sections.unclassified.push(card.name);
-      sections.trainer.push({ quantity: card.quantity, name });
+      if (supertype !== 'trainer' && !sections.unclassified.includes(card.name)) {
+        sections.unclassified.push(card.name);
+      }
+      addByName(sections.trainer, card.quantity, name);
     }
   }
   return sections;
+}
+
+/** False only for a print known to predate regulation marks. */
+function mayHaveRegulationMark(cardId: string | undefined, db: CardDatabase): boolean {
+  const released = cardId ? db.releaseDate(setIdOf(cardId) ?? '') : '';
+  return released === '' || released >= FIRST_REGULATION_MARK_DATE;
 }
 
 /**
